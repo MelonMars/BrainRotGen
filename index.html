@@ -385,12 +385,14 @@
 
         const textObject = canvas.getObjects('text')[0];
         let textInfo;
-        if (textObject) {textInfo = {
-            text: textObject.fullText,
-            position: { x: textObject.left, y: textObject.top },
-            words_per_segment: textObject.words_per_segment,
-            segment_duration: textObject.segment_duration
-        };} else {
+        if (textObject) {
+            textInfo = {
+                text: textObject.fullText,
+                position: {x: textObject.left, y: textObject.top},
+                words_per_segment: textObject.words_per_segment,
+                segment_duration: textObject.segment_duration
+            };
+        } else {
             textInfo = null;
         }
         const formData = new FormData();
@@ -407,7 +409,7 @@
         formData.forEach((value, key) => {
             console.log(key, value);
         });
-        fetch('http://lcoalhost:5000/process-payload', {
+        fetch('http://localhost:5000/process-payload', {
             method: 'POST',
             body: formData,
         }).then(response => response.blob())
@@ -419,6 +421,7 @@
             })
             .then(data => console.log('Response:', data))
             .catch(error => console.error('Error:', error));
+    }
 
     function toggleTTSInput() {
         const ttsCheckbox = document.getElementById('tts-checkbox');

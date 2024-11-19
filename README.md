@@ -12,9 +12,12 @@ Requires:
 
 ```bash
 cd Backend
-docker build -t 
+docker build -t brainrotgen .
+docker run -d -p 5000:5000 brainrotgen # -d is optional, it runs everything "detached" so you can close the terminal
 ```
+You can then find a webserver of your liking (I've been using the built in WebStorm webserver) and open the index.html file
 
+To spin down the docker container, if you didn't run with `-d`, then you can just close the terminal. If you did, then you can run `docker ps` to find the container id and then `docker stop <container id>` to stop it.
 
 
 

@@ -4,8 +4,12 @@ import os
 import tempfile
 from flask_cors import CORS
 from moviepy.config import change_settings
+import sys
 
-change_settings({"IMAGEMAGICK_BINARY": "C:\\Program Files\\ImageMagick-7.1.1-Q16-HDRI\\magick.exe"})
+default_imagemagick_path = "C:\\Program Files\\ImageMagick-7.1.1-Q16-HDRI\\magick.exe"
+imagemagick_path = sys.argv[1] if len(sys.argv) > 1 else default_imagemagick_path
+
+change_settings({"IMAGEMAGICK_BINARY": imagemagick_path})
 
 app = Flask(__name__)
 CORS(app)

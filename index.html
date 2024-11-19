@@ -407,18 +407,24 @@
         formData.forEach((value, key) => {
             console.log(key, value);
         });
+        // fetch('http://162.243.118.213:5000/process-payload', {
+        //     method: 'POST',
+        //     body: formData,
+        // }).then(response => response.blob())
+        //     .then(blob => {
+        //         const videoUrl = URL.createObjectURL(blob);
+        //         const videoElement = document.getElementById('output-video');
+        //         videoElement.src = videoUrl;
+        //         videoElement.style.display = 'block';
+        //     })
+        //     .then(data => console.log('Response:', data))
+        //     .catch(error => console.error('Error:', error));
         fetch('http://162.243.118.213:5000/process-payload', {
-            method: 'POST',
-            body: formData,
-        }).then(response => response.blob())
-            .then(blob => {
-                const videoUrl = URL.createObjectURL(blob);
-                const videoElement = document.getElementById('output-video');
-                videoElement.src = videoUrl;
-                videoElement.style.display = 'block';
-            })
-            .then(data => console.log('Response:', data))
-            .catch(error => console.error('Error:', error));
+    method: 'POST',
+    body: formData,
+}).then(response => response.json())
+    .then(data => console.log('Response:', data))
+    .catch(error => console.error('Error:', error));
     }
 
     function toggleTTSInput() {

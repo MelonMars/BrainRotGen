@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fabric.js Canvas Orientation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+
+        #canvas-container {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            background-color: #0056b3;
+        }
+
+        canvas {
+            border: 1px solid black;
+        }
+
+        #rect-params, #text-params, #settings-menu {
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            display: flex;
+            flex-direction: column;
+            position:absolute;
+            right:20px;
+            top:20px;
+            background-color:white;
+            border:1px solid #ccc;
+            padding:10px;
+        }
+
+        #text-params button {
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+<div id="canvas-container" style="display: flex; flex-direction: column">
+    <canvas id="canvas" width="800" height="600"></canvas>
+    <div style="margin-top: 20px;">
+        <button onclick="setOrientation('portrait')">Portrait</button>
+        <button onclick="setOrientation('landscape')">Landscape</button>
+    </div>
+    <div style="margin-top: 20px;">
+        <button onclick="toggleSettings()">Settings</button>
+        <button onclick="compose()">Compose</button>
+    </div>
+</div>
+<div id="rect-params" style="display:none;">
+    <h3>Rectangle Parameters</h3>
+    <label for="video-input">Video:</label>
+    <input type="file" id="video-input" accept="video/*" onchange="handleVideoInput()">
+    <div>
+        <label>
+            <input type="checkbox" id="ai-generate-checkbox" onchange="toggleAIGenerate()"> AI Generate
+        </label>
+    </div>
+    <div id="frame-count-container" style="display:none;">
+        <label for="frame-count-input">Number of Frames:</label>
+        <input type="number" id="frame-count-input" min="1" value="1">
+    </div>
+    <label for="color-input">Color:</label>
+    <input type="color" id="color-input" onchange="handleColorVidInput()">
+</div>
+<div id="text-params" style="display:none; flex-direction: column;">
+    <h3>Text Parameters</h3>
+    <label for="text-input">Text:</label>
+    <input type="text" id="text-input" value="selectedText.fullText">
+    <label for="text-color">Color:</label>
+    <input type="color" id="text-color" onchange="handleColorTextInput()">
+    <label for="text-font">Font:</label>
+    <input type="file" id="text-font" accept=".ttf" onchange="handleFontInput()">
+    <label for="text-per-frame">Text per Frame:</label>
+    <input type="text" id="text-per-frame" onchange="handleTPFInput()">
+    <label for="text-duration">Duration of segment of text (seconds):</label>
+    <input type="text" id="text-duration" onchange="handleTextDurationInput()">
+    <button onclick="handleTextChangeInput()">Update Text</button>
+</div>
+<div id="settings-menu" style="display: none; flex-direction: column;">
+    <label for="openai-key">OpenAI Key:</label>
+    <input type="text" id="openai-key">
+    <label for="tts-checkbox">TTS:</label>
+    <input type="checkbox" id="tts-checkbox" onchange="toggleTTSInput()">
+    <div id="tts-input-container" style="display: none;">
+        <label for="tts-input">ElevenLabs Key:</label>
+        <input type="text" id="tts-input">
+    </div>
+</div>
+<video id="output-video" controls style="display:none; margin-top: 20px; z-index: 1000;"></video>
+<div id="context-menu" style="display:none; position:absolute; background-color:white; border:1px solid #ccc; z-index:1000;">
+    <ul style="list-style:none; margin:0; padding:10px;">
+        <li onclick="addVideo(event)">New video</li>
+        <li onclick="addText(event)">New text</li>
+    </ul>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/500/fabric.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@latest"></script>
+<script>
+    const canvas = new fabric.Canvas('canvas');
+    const initialWidth = 400;
+    const initialHeight = 600;
+    let currentOrientation = 'portrait';
+    let selectedRect = null;
+    let selectedText = null;
+    let aiGeneratedRect = null;
+    let settingsOpen = false;
+    const videos = [];
+
+
+    function setOrientation(orientation) {
+        if (orientation === 'portrait') {
+            canvas.setWidth(initialWidth);
+            canvas.setHeight(initialHeight);
+        } else if (orientation === 'landscape') {
+            canvas.setWidth(initialHeight);
+            canvas.setHeight(initialWidth);
+        }
+        currentOrientation = orientation;
+        canvas.renderAll();
+    }
+
+    setOrientation(currentOrientation);
+
+    const canvasContainer = document.getElementById('canvas-container');
+    const contextMenu = document.getElementById('context-menu');
+    canvasContainer.addEventListener('contextmenu', function(event) {
+        event.preventDefault();
+        contextMenu.style.display = 'block';
+        contextMenu.style.left = `${event.pageX}px`;
+        contextMenu.style.top = `${event.pageY}px`;
+    });
+
+    document.addEventListener('click', function(event) {
+        if (event.button !== 2) {
+            contextMenu.style.display = 'none';
+        }
+    });
+
+    function addVideo(event) {
+        const mousePos = canvas.getPointer(event);
+        const rectId = `rect-${Date.now()}`;
+        const rect = new fabric.Rect({
+            left: mousePos.x - 25,
+            top: mousePos.y - 25,
+            fill: 'red',
+            width: 50,
+            height: 50,
+            id: rectId,
+            hasVideo: false,
+            isAIGenerated: false,
+            frameCount: 1
+        });
+
+        rect.on('selected', function() {
+            selectedRect = rect;
+            showRectParams(rect);
+        });
+
+        canvas.add(rect);
+    }
+
+    document.addEventListener('keydown', function(event) {
+        if ((event.key === 'Delete')) {
+            if (selectedRect) {
+                canvas.remove(selectedRect);
+                selectedRect = null;
+                const rectParams = document.getElementById('rect-params');
+                rectParams.style.display = 'none';
+            } else if (selectedText) {
+                canvas.remove(selectedText);
+                selectedText = null;
+                const textParams = document.getElementById('text-params');
+                textParams.style.display = 'none';
+            }
+        }
+    });
+
+    canvas.on('mouse:down', function(event) {
+        if (!canvas.getActiveObject()) {
+            const rectParams = document.getElementById('rect-params');
+            const textParams = document.getElementById('text-params');
+            rectParams.style.display = 'none';
+            textParams.style.display = 'none';
+        }
+    });
+
+    function showRectParams(rect) {
+        const rectParams = document.getElementById('rect-params');
+        const videoInput = document.getElementById('video-input');
+        const aiGenerateCheckbox = document.getElementById('ai-generate-checkbox');
+        const frameCountContainer = document.getElementById('frame-count-container');
+
+        rectParams.style.display = 'flex';
+
+        aiGenerateCheckbox.checked = rect.isAIGenerated;
+        videoInput.disabled = rect.isAIGenerated;
+
+        frameCountContainer.style.display = rect.isAIGenerated ? 'block' : 'none';
+
+        const frameCountInput = document.getElementById('frame-count-input');
+        frameCountInput.value = rect.frameCount;
+    }
+
+    function handleVideoInput() {
+        if (selectedRect && !selectedRect.isAIGenerated) {
+            const videoInput = document.getElementById('video-input');
+            const file = videoInput.files[0];
+            if (file) {
+                selectedRect.hasVideo = true;
+                console.log(`Video assigned to rectangle: ${selectedRect.id}`);
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const blob = new Blob([event.target.result], { type: file.type });
+                    videos.push({ id: selectedRect.id, blob: blob, name: file.name });
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        }
+    }
+
+    function handleColorVidInput() {
+        if (selectedRect) {
+            const colorInput = document.getElementById('color-input');
+            selectedRect.set('fill', colorInput.value);
+            canvas.renderAll();
+        }
+    }
+
+    function toggleAIGenerate() {
+        if (selectedRect) {
+            const aiGenerateCheckbox = document.getElementById('ai-generate-checkbox');
+            const frameCountContainer = document.getElementById('frame-count-container');
+
+            selectedRect.isAIGenerated = aiGenerateCheckbox.checked;
+            selectedRect.hasVideo = !aiGenerateCheckbox.checked;
+
+            frameCountContainer.style.display = selectedRect.isAIGenerated ? 'block' : 'none';
+
+            if (selectedRect.isAIGenerated) {
+                if (aiGeneratedRect && aiGeneratedRect !== selectedRect) {
+                    aiGeneratedRect.isAIGenerated = false;
+                    aiGeneratedRect.hasVideo = true;
+                }
+                aiGeneratedRect = selectedRect;
+            }
+
+            const frameCountInput = document.getElementById('frame-count-input');
+            selectedRect.frameCount = selectedRect.isAIGenerated ? parseInt(frameCountInput.value, 10) || 1 : 1;
+        }
+    }
+
+    function addText(event) {
+    const mousePos = canvas.getPointer(event);
+    const textId = `text-${Date.now()}`;
+    const text = new fabric.Text('Hello...', {
+        left: mousePos.x,
+        top: mousePos.y,
+        fill: 'black',
+        id: textId,
+        words_per_segment: 1,
+        segment_duration: 1,
+        fullText: 'Hello, World!'
+    });
+    canvas.add(text);
+    text.on('selected', function() {
+        selectedText = text;
+        showTextParams(text);
+    });
+    }
+
+    function showTextParams(text) {
+        const textParams = document.getElementById('text-params');
+        const textInput = document.getElementById('text-input');
+
+        textParams.style.display = 'flex';
+        textInput.value = text.fullText;
+    }
+
+    function handleFontInput() {
+        if (selectedText) {
+            const fontInput = document.getElementById('text-font');
+            const file = fontInput.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const font = new FontFace('customFont', event.target.result);
+                    font.load().then(function(loadedFont) {
+                        document.fonts.add(loadedFont);
+                        selectedText.set('fontFamily', 'customFont');
+                        canvas.renderAll();
+                    }).catch(function(error) {
+                        console.error('Error loading font:', error);
+                    });
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        }
+    }
+
+    function handleTextChangeInput() {
+        if (selectedText) {
+            const textInput = document.getElementById('text-input');
+            const words = textInput.value.split(' ');
+            if (words.length > selectedText.words_per_segment) {
+                selectedText.set('text', words.slice(0, selectedText.words_per_segment).join(' ') + '...');
+            } else {
+                selectedText.set('text', textInput.value);
+            }
+            selectedText.set('fullText', textInput.value);
+            canvas.renderAll();
+        }
+    }
+
+    function handleTPFInput() {
+        if (selectedText) {
+            const textPerFrameInput = document.getElementById('text-per-frame');
+            selectedText.set('words_per_segment', textPerFrameInput.value);
+            canvas.renderAll();
+        }
+    }
+
+    function handleTextDurationInput() {
+        if (selectedText) {
+            const textDurationInput = document.getElementById('text-duration');
+            selectedText.set('segment_duration', textDurationInput.value);
+            canvas.renderAll();
+        }
+    }
+
+    function handleColorTextInput() {
+        if (selectedText) {
+            const textColorInput = document.getElementById('text-color');
+            selectedText.set('fill', textColorInput.value);
+            canvas.renderAll();
+        }
+    }
+
+    document.getElementById('frame-count-input').addEventListener('input', function() {
+        if (selectedRect && selectedRect.isAIGenerated) {
+            selectedRect.frameCount = parseInt(this.value, 10) || 1;
+        }
+    });
+
+    function toggleSettings() {
+        const settingsMenu = document.getElementById('settings-menu');
+        settingsMenu.style.display = settingsOpen ? 'none' : 'flex';
+        settingsOpen = !settingsOpen;
+    }
+
+    async function compose() {
+        const openaiKey = document.getElementById('openai-key').value;
+        const rects = canvas.getObjects('rect').filter(rect => rect.hasVideo);
+        const formattedRects = rects.map(rect => ({
+            x: rect.left,
+            y: rect.top,
+            width: rect.width * rect.scaleX,
+            height: rect.height * rect.scaleY,
+            id: rect.id
+        }));
+
+        const textObject = canvas.getObjects('text')[0];
+        let textInfo;
+        if (textObject) {textInfo = {
+            text: textObject.fullText,
+            position: { x: textObject.left, y: textObject.top },
+            words_per_segment: textObject.words_per_segment,
+            segment_duration: textObject.segment_duration
+        };} else {
+            textInfo = null;
+        }
+        const formData = new FormData();
+        formData.append('aspect_ratio', currentOrientation);
+        formData.append('rects', JSON.stringify(formattedRects));
+        formData.append('text_info', JSON.stringify(textInfo));
+
+        console.log("Current orientation: ", currentOrientation, "Rects: ", formattedRects);
+        videos.forEach(video => {
+            formData.append('videos', video.blob, video.name);
+        });
+
+        console.log("Payload: ");
+        formData.forEach((value, key) => {
+            console.log(key, value);
+        });
+        fetch('http://localhost:5000/process-payload', {
+            method: 'POST',
+            body: formData,
+        }).then(response => response.blob())
+            .then(blob => {
+                const videoUrl = URL.createObjectURL(blob);
+                const videoElement = document.getElementById('output-video');
+                videoElement.src = videoUrl;
+                videoElement.style.display = 'block';
+            })
+            .then(data => console.log('Response:', data))
+            .catch(error => console.error('Error:', error));
+    }
+
+    function toggleTTSInput() {
+        const ttsCheckbox = document.getElementById('tts-checkbox');
+        const ttsInputContainer = document.getElementById('tts-input-container');
+        ttsInputContainer.style.display = ttsCheckbox.checked ? 'block' : 'none';
+    }
+
+</script>
+</body>
+</html>

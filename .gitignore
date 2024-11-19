@@ -1,2 +1,10 @@
+# For PyCharm/Webstorm
 *.idea
+# For Python
 *.venv
+# For Firebase
+*.log
+*public
+*.firebase
+firebase.json
+.firebaserc

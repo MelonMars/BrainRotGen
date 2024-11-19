@@ -67,7 +67,7 @@ def process_payload():
             clips.extend(text_clips)
 
         final_clip = CompositeVideoClip(clips, size=canvas_size)
-        output_path = "composited_video.mp4"
+        output_path = "../composited_video.mp4"
         final_clip.write_videofile(output_path, codec='libx264', fps=24)
 
         for video in videos:

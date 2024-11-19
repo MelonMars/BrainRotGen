@@ -1,9 +1,8 @@
-FROM ubuntu:latest
-LABEL authors="carte"
+FROM python:3.11
+LABEL authors="carter"
 
-ENTRYPOINT ["top", "-b"]
-COPY requirements.txt /app/requirements.txt
-RUN apt-get update && apt-get install -y python3-pip && pip3 install -r /requirements.txt
+COPY ./requirements.txt /app/requirements.txt
+RUN pip3 install -r /app/requirements.txt
 
-COPY api.py /app/api.py
-CMD ["python3", "/api.py"]
+COPY ./api.py /app/api.py
+CMD ["python3", "/app/api.py"]

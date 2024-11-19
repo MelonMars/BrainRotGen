@@ -67,13 +67,17 @@ def process_payload():
             clips.extend(text_clips)
 
         final_clip = CompositeVideoClip(clips, size=canvas_size)
-        output_path = "../composited_video.mp4"
-        final_clip.write_videofile(output_path, codec='libx264', fps=24)
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.mp4') as temp_output:
+            output_path = temp_output.name
+            final_clip.write_videofile(output_path, codec='libx264', fps=24)
 
-        for video in videos:
-            os.unlink(video.filename)
+            for video in videos:
+                os.unlink(video.filename)
 
-        return send_file(output_path, as_attachment=True, download_name='composited_video.mp4')
+            response = send_file(output_path, as_attachment=True, download_name='composited_video.mp4')
+
+        os.unlink(output_path)
+        return response
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500

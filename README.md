@@ -2,7 +2,7 @@
 
 This is a simple BrainRot generator. It currently is designed to make those weird videos. You supply videos to it and text to it and it will generate an output video from it.
 
-Currently it is functioning at: [Firebase](). ***Please*** try to be soft with my server, it's not free for me.
+Currently it is functioning at: [Firebase](). ***Please*** try to be soft with my server, it's not free for me. And be *very* patient, it takes a while.
 
 ## Run for yourself:
 The following will work in Linux, and should work pretty similarly in Windows (I am using a VPS so other people can use it):
